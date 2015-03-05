@@ -1,0 +1,108 @@
+#!/usr/bin/bash
+
+# INSTALLDIR
+OLDPWD=$PWD
+cd `dirname $0`
+INSTALLDIR=$( echo $PWD | sed 's#/bin##' )
+cd $PWD
+
+REPO=$INSTALLDIR/repo
+PROFILES=$INSTALLDIR/profiles
+IMAGETAG=DI_
+CONTAINERTAG=DC_
+ARCHEXT=uar
+MILESTONE=multi-user-server
+
+function set_ZONENAME {
+	IMAGE=$1
+	ZONENAME="$IMAGETAG$( echo $IMAGE | tr -s '/' '_' | cut -f1 -d.)"
+}
+
+function set_CLONESRC {
+	IMAGE=$1
+	CLONESRC="$IMAGETAG$( echo $IMAGE | tr -s '/' '_' | cut -f1 -d.)"
+}
+
+function wait_online {
+	ZONENAME=$1
+	SVC=$2
+	until [ "$STATE" == "online" ]; do
+		sleep 1
+		echo -n "."
+		STATE=$( zlogin $1 svcs -Ho state $SVC 2>/dev/null)
+	done
+	echo
+}
+
+# docker cli
+case "$1" in
+	version)
+		echo "Docker for Solaris version 0.0.1"
+		;;
+	images)
+		zoneadm list -i | grep "^$IMAGETAG" | sed "s/^$IMAGETAG//" | tr -s '_' '/'
+		;;
+	search)
+		find $REPO -name "*.$ARCHEXT" | sed "s#^$REPO/##" | cut -f1 -d.
+		;;
+	pull)
+		[ -z "$2" ] && exit 1
+		IMAGE=$2
+		set_ZONENAME $IMAGE
+		zoneadm list -i | grep -qw $ZONENAME && exit 0
+		zonecfg -z $ZONENAME create
+		zoneadm -z $ZONENAME install -a $REPO/$IMAGE.$ARCHEXT -c $PROFILE/default.xml
+		;;
+	run)
+		[ -z "$2" -o -z "$3" ] && exit 1
+		IMAGE=$2
+		CMD=$3
+		set_CLONESRC $IMAGE
+		ZONENAME="$CONTAINERTAG$( openssl rand -hex 8 )"
+		# create a new container
+		zonecfg -z $ZONENAME create
+		zoneadm -z $ZONENAME clone -c $PROFILE/default.xml $CLONESRC
+		# start the conatiner
+		zoneadm -z $ZONENAME boot
+		# wait multiuser before 
+		wait_online $ZONENAME $MILESTONE 
+		zlogin -S $ZONENAME $CMD
+		zoneadm -z $ZONENAME shutdown
+		;;
+	ps)
+		if [ "$2" == "-a" ]; then OPT="-i" ;fi
+		zoneadm list $OPT -v | awk "/$CONTAINERTAG/{print \$2,\$3}" | sed "s/$CONTAINERTAG//"
+		;;
+	start)
+		[ -z "$2" ] && exit 1
+		CONTAINER=$2
+		zoneadm -z $CONTAINERTAG$CONTAINER boot
+		;;
+	stop)
+		[ -z "$2" ] && exit 1
+		CONTAINER=$2
+		zoneadm -z $CONTAINERTAG$CONTAINER shutdown
+		;;
+	kill)
+		[ -z "$2" ] && exit 1
+		CONTAINER=$2
+		zoneadm -z $CONTAINERTAG$CONTAINER halt
+		;;
+	rm)
+		[ -z "$2" ] && exit 1
+		CONTAINER=$2
+		ZONENAME="$CONTAINERTAG$CONTAINER"
+		zoneadm -z $ZONENAME uninstall -F
+		zonecfg -z $ZONENAME delete -F
+		;;
+	*)
+		echo "Commands:"
+		echo " version"
+		echo " images"
+		echo " search"
+		echo " pull IMAGE"
+		echo " run IMAGE CMD"
+		echo " rm CONTAINER"
+		echo " ps [-a]"
+		;;
+esac

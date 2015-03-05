@@ -1,0 +1,4 @@
+zoneadm list -c | egrep "^DC|^DI" | xargs -i zoneadm -z {} halt
+zoneadm list -c | egrep "^DC" | xargs -i zoneadm -z {} uninstall -F
+zoneadm list -c | egrep "^DI" | xargs -i zoneadm -z {} uninstall -F
+zoneadm list -c | egrep "^DC|^DI" | xargs -i zonecfg -z {} delete -F
