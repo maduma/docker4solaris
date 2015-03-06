@@ -1,26 +1,48 @@
 #!/usr/bin/bash
 
-# INSTALLDIR
-OLDPWD=$PWD
-cd `dirname $0`
-INSTALLDIR=$( echo $PWD | sed 's#/bin##' )
-cd $PWD
 
+#
+# Doker for Solaris 11.2
+#
+#    Date: __RELEASE_DATE__
+# Version: __VERSION__
+#
+# maduma@pt.lu
+#
+# timing value for i386 2511MHz
+#
+
+
+# INSTALLDIR
+INSTALLDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd | sed 's#/bin##')
+
+# settings
 REPO=$INSTALLDIR/repo
+IMAGES=$INSTALLDIR/images
 PROFILES=$INSTALLDIR/profiles
+MANIFESTS=$INSTALLDIR/manifests
+MILESTONE=multi-user-server
 IMAGETAG=DI_
 CONTAINERTAG=DC_
-ARCHEXT=uar
-MILESTONE=multi-user-server
 
-function set_ZONENAME {
-	IMAGE=$1
-	ZONENAME="$IMAGETAG$( echo $IMAGE | tr -s '/' '_' | cut -f1 -d.)"
-}
+# generate learn/tutorial archive
+[ ! -d $REPO -o ! -d $IMAGES ] && mkdir -p $REPO $IMAGES
+[ ! -d $REPO/learn ] && mkdir $REPO/learn
+if [ ! -f $REPO/learn/tutorial.desc ]; then
+	echo "An image for the interactive tutorial" > $REPO/learn/tutorial.desc
+fi
+if [ ! -f $REPO/learn/tutorial.uar ]; then
+	echo "Creating the image learn/tutorial in the repository"
+	zonecfg -z ${IMAGETAG}tutorial create
+	zoneadm -z ${IMAGETAG}tutorial install -m $MANIFESTS/solaris-minimal-server.xml
+	archiveadm create -z ${IMAGETAG}tutorial -e $REPO/learn/tutorial.uar
+fi
 
-function set_CLONESRC {
+# helper functions
+
+function img2zone {
 	IMAGE=$1
-	CLONESRC="$IMAGETAG$( echo $IMAGE | tr -s '/' '_' | cut -f1 -d.)"
+	echo "$IMAGETAG$( echo $IMAGE | tr -s '/' '_' | cut -f1 -d.)"
 }
 
 function wait_online {
@@ -28,10 +50,8 @@ function wait_online {
 	SVC=$2
 	until [ "$STATE" == "online" ]; do
 		sleep 1
-		echo -n "."
 		STATE=$( zlogin $1 svcs -Ho state $SVC 2>/dev/null)
 	done
-	echo
 }
 
 # docker cli
@@ -40,38 +60,77 @@ case "$1" in
 		echo "Docker for Solaris version 0.0.1"
 		;;
 	images)
-		zoneadm list -i | grep "^$IMAGETAG" | sed "s/^$IMAGETAG//" | tr -s '_' '/'
+		ls $IMAGES | sed 's/^DI_//' | tr -s '_' '/' | cut -f1 -d.
 		;;
 	search)
-		find $REPO -name "*.$ARCHEXT" | sed "s#^$REPO/##" | cut -f1 -d.
+		[ -z "$2" ] && exit 1
+		IMAGES=$( find $REPO -name "*.uar" | sed "s#^$REPO/##" | cut -f1 -d. | grep $2 )
+		[ -z "$IMAGES" ] && exit 0
+		IMAGESNBR=$( echo $IMAGES | wc -l )
+		echo Found $IMAGESNBR results matching your query \(\"$2\"\)
+		echo "NAME                      DESCRIPTION"
+		for IMAGE in $IMAGES; do
+			printf "%-25s %s\n" $IMAGE "`cat $REPO/$IMAGE.desc`"
+		done
 		;;
 	pull)
 		[ -z "$2" ] && exit 1
 		IMAGE=$2
-		set_ZONENAME $IMAGE
-		zoneadm list -i | grep -qw $ZONENAME && exit 0
-		zonecfg -z $ZONENAME create
-		zoneadm -z $ZONENAME install -a $REPO/$IMAGE.$ARCHEXT -c $PROFILE/default.xml
+		ZONENAME=`img2zone $IMAGE`
+		# copy the image localy
+		echo "Pulling repository $IMAGE"
+		[ ! -f $IMAGES/$ZONENAME.uar ] && cp -r $REPO/$IMAGE.uar $IMAGES/$ZONENAME.uar && \
+			echo "Pulling image $ZONENAME.uar"
+		[ ! -f $IMAGES/$ZONENAME.desc ] && cp -r $REPO/$IMAGE.desc $IMAGES/$ZONENAME.desc && \
+			echo "Pulling description $ZONENAME.desc"
 		;;
 	run)
 		[ -z "$2" -o -z "$3" ] && exit 1
 		IMAGE=$2
-		CMD=$3
-		set_CLONESRC $IMAGE
+		shift 2
+		CLONESRC=`img2zone $IMAGE`
+		# give a random name to the zon
 		ZONENAME="$CONTAINERTAG$( openssl rand -hex 8 )"
 		# create a new container
-		zonecfg -z $ZONENAME create
-		zoneadm -z $ZONENAME clone -c $PROFILE/default.xml $CLONESRC
+		echo "Create zone $ZONENAME"
+		zonecfg -z $ZONENAME create 2>&1 >/dev/null
+		echo "Install the zone (180 sec)"
+		zoneadm -z $ZONENAME install -a $IMAGES/$CLONESRC.uar -c $PROFILES/default.xml 2>&1 >/dev/null
 		# start the conatiner
+		echo "Boot the zone (15 sec)"
 		zoneadm -z $ZONENAME boot
-		# wait multiuser before 
+		# wait milestone
+		echo "Waiting the zone to be ready (180 sec) - milestone $MILESTONE"
 		wait_online $ZONENAME $MILESTONE 
-		zlogin -S $ZONENAME $CMD
+		# add lastrun attribute
+		echo -e "add attr\nset name=lastrun\nset type=uint\nset value=$(date +%s)\nend\ncommit\n" | \
+			zonecfg -z $ZONENAME
+		echo -e "add attr\nset name=image\nset type=string\nset value=\"$IMAGE\"\nend\ncommit\n" | \
+			zonecfg -z $ZONENAME
+		# run the process inside unsing zlogin
+		echo "Run process inside the zone"
+		echo "---------------------------"
+		zlogin -S $ZONENAME $@
+		echo "---------------------------"
+		# finaly stop the zone
+		echo "Stoping the zone (20 sec)"
 		zoneadm -z $ZONENAME shutdown
 		;;
 	ps)
-		if [ "$2" == "-a" ]; then OPT="-i" ;fi
-		zoneadm list $OPT -v | awk "/$CONTAINERTAG/{print \$2,\$3}" | sed "s/$CONTAINERTAG//"
+		if [ "$2" == "-a" -o "$2" == "-l" ]; then OPT="-i" ;fi
+		if [ "$2" == "-l" ]; then TAIL=-1; else TAIL=-100; fi
+		CONTAINERS=$( zoneadm list $OPT -v | awk "/$CONTAINERTAG/{print \$2}")
+		[ -z "$CONTAINERS" ] && exit 0
+		echo "ID                   IMAGE                CREATED(EPOCH)       STATE"
+		for CONTAINER in $CONTAINERS; do
+			LASTRUN=$( zonecfg -z $CONTAINER info attr name=lastrun | \
+				perl -nle 'print $1 if /value: (\d+)/' )
+			IMAGE=$( zonecfg -z $CONTAINER info attr name=image | \
+				perl -nle 'print $1 if /value: (\S+)/' )
+			STATE=$( zoneadm -z $CONTAINER list -p | cut -f3 -d: )
+			printf "%-20s %-20s %-20s %s\n" $(echo $CONTAINER | sed 's/DC_//') \
+				$IMAGE $LASTRUN $STATE
+		done | sort -n +1 | tail $TAIL
 		;;
 	start)
 		[ -z "$2" ] && exit 1
@@ -95,7 +154,24 @@ case "$1" in
 		zoneadm -z $ZONENAME uninstall -F
 		zonecfg -z $ZONENAME delete -F
 		;;
+	rmi)
+		[ -z "$2" ] && exit 1
+		IMAGE=$2
+		ZONENAME=`img2zone $IMAGE`
+		[ -f $IMAGES/$ZONENAME.uar ] && rm $IMAGES/$ZONENAME.uar
+		;;
+	commit)
+		[ -z "$2" -o -z "$3" ] && exit 1
+		CONTAINER=$2
+		IMAGE=$3
+		ZONENAME="$CONTAINERTAG$CONTAINER"
+		ARCHNAME=`img2zone $IMAGE`
+		echo "Creating unified archive (200 sec)"
+		archiveadm create -z $ZONENAME -e $IMAGES/$ARCHNAME.uar 2>&1 >/dev/null
+		echo "$IMAGE ($ARCHNAME.uar)"
+		;;
 	*)
+		echo "Docker for Solaris version 0.0.1"
 		echo "Commands:"
 		echo " version"
 		echo " images"
@@ -103,6 +179,8 @@ case "$1" in
 		echo " pull IMAGE"
 		echo " run IMAGE CMD"
 		echo " rm CONTAINER"
+		echo " rmi IMAGE"
 		echo " ps [-a]"
+		echo " commit CONTAINER IMAGE"
 		;;
 esac
