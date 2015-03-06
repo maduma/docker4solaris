@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/usr/bin/bash -x
 
 #
 # Clean all stuff created by doker4solaris !
@@ -12,5 +12,6 @@ zoneadm list -c | egrep "^DC_|^DI_" | xargs -i zoneadm -z {} halt 2>&1 >/dev/nul
 zoneadm list -c | egrep "^DC_" | xargs -i zoneadm -z {} uninstall -F 2>&1 >/dev/null
 zoneadm list -c | egrep "^DI_" | xargs -i zoneadm -z {} uninstall -F 2>&1 >/dev/null
 zoneadm list -c | egrep "^DC_|^DI_" | xargs -i zonecfg -z {} delete -F 2>&1 >/dev/null
+
 rm -r $IMAGES
 rm -r $REPO
