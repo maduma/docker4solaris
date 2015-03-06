@@ -1,5 +1,9 @@
 #!/usr/bin/bash
 
+#
+# Clean all stuff created by doker4solaris !
+#
+
 INSTALLDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd | sed 's#/bin##')
 IMAGES=$INSTALLDIR/images
 REPO=$INSTALLDIR/repo
