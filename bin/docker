@@ -10,7 +10,8 @@
 # maduma@pt.lu
 #
 # timing value for i386 2511MHz
-#
+# 
+ 
 
 
 # INSTALLDIR
@@ -32,7 +33,7 @@ if [ ! -f $REPO/learn/tutorial.desc ]; then
 	echo "An image for the interactive tutorial" > $REPO/learn/tutorial.desc
 fi
 if [ ! -f $REPO/learn/tutorial.uar ]; then
-	echo "Creating the image learn/tutorial in the repository"
+	echo "Creating the image learn/tutorial in the repository (200 sec)"
 	zonecfg -z ${IMAGETAG}tutorial create
 	zoneadm -z ${IMAGETAG}tutorial install -m $MANIFESTS/solaris-minimal-server.xml
 	archiveadm create -z ${IMAGETAG}tutorial -e $REPO/learn/tutorial.uar
@@ -60,7 +61,7 @@ case "$1" in
 		echo "Docker for Solaris version 0.0.1"
 		;;
 	images)
-		ls $IMAGES | sed 's/^DI_//' | tr -s '_' '/' | cut -f1 -d.
+		ls $IMAGES | grep "\.uar$" | sed 's/^DI_//' | tr -s '_' '/' | cut -f1 -d.
 		;;
 	search)
 		[ -z "$2" ] && exit 1
@@ -85,9 +86,17 @@ case "$1" in
 			echo "Pulling description $ZONENAME.desc"
 		;;
 	run)
+		# use -d option to prevent zone to shutdown after the command return
 		[ -z "$2" -o -z "$3" ] && exit 1
-		IMAGE=$2
-		shift 2
+		if [ "$2" == "-d" ]; then
+			[ -z "$4" ] && exit 1
+			DEAMON="True"
+			IMAGE=$3
+			shift 3
+		else
+			IMAGE=$2
+			shift 2
+		fi
 		CLONESRC=`img2zone $IMAGE`
 		# give a random name to the zon
 		ZONENAME="$CONTAINERTAG$( openssl rand -hex 8 )"
@@ -95,7 +104,9 @@ case "$1" in
 		echo "Create zone $ZONENAME"
 		zonecfg -z $ZONENAME create 2>&1 >/dev/null
 		echo "Install the zone (180 sec)"
-		zoneadm -z $ZONENAME install -a $IMAGES/$CLONESRC.uar -c $PROFILES/default.xml 2>&1 >/dev/null
+		sed "s/__NODENAME__/$ZONENAME/" $PROFILES/default.xml > /tmp/manifest.$ZONENAME.xml
+		zoneadm -z $ZONENAME install -a $IMAGES/$CLONESRC.uar \
+			-c /tmp/manifest.$ZONENAME.xml 2>&1 >/dev/null
 		# start the conatiner
 		echo "Boot the zone (15 sec)"
 		zoneadm -z $ZONENAME boot
@@ -112,9 +123,11 @@ case "$1" in
 		echo "---------------------------"
 		zlogin -S $ZONENAME $@
 		echo "---------------------------"
-		# finaly stop the zone
-		echo "Stoping the zone (20 sec)"
-		zoneadm -z $ZONENAME shutdown
+		# finaly stop the zone unless -d option
+		if [ -z "$DEAMON" ]; then
+			echo "Stoping the zone (20 sec)"
+			zoneadm -z $ZONENAME shutdown
+		fi
 		;;
 	ps)
 		if [ "$2" == "-a" -o "$2" == "-l" ]; then OPT="-i" ;fi
@@ -123,9 +136,9 @@ case "$1" in
 		[ -z "$CONTAINERS" ] && exit 0
 		echo "ID                   IMAGE                CREATED(EPOCH)       STATE"
 		for CONTAINER in $CONTAINERS; do
-			LASTRUN=$( zonecfg -z $CONTAINER info attr name=lastrun | \
+			LASTRUN=$( zonecfg -z $CONTAINER info attr name=lastrun 2>/dev/null | \
 				perl -nle 'print $1 if /value: (\d+)/' )
-			IMAGE=$( zonecfg -z $CONTAINER info attr name=image | \
+			IMAGE=$( zonecfg -z $CONTAINER info attr name=image 2>/dev/null | \
 				perl -nle 'print $1 if /value: (\S+)/' )
 			STATE=$( zoneadm -z $CONTAINER list -p | cut -f3 -d: )
 			printf "%-20s %-20s %-20s %s\n" $(echo $CONTAINER | sed 's/DC_//') \
@@ -169,6 +182,8 @@ case "$1" in
 		echo "Creating unified archive (200 sec)"
 		archiveadm create -z $ZONENAME -e $IMAGES/$ARCHNAME.uar 2>&1 >/dev/null
 		echo "$IMAGE ($ARCHNAME.uar)"
+		echo "$IMAGE ($ARCHNAME.uar)" > $IMAGES/$ARCHNAME.desc
+		echo "$IMAGE ($ARCHNAME.desc)"
 		;;
 	*)
 		echo "Docker for Solaris version 0.0.1"
@@ -177,7 +192,7 @@ case "$1" in
 		echo " images"
 		echo " search"
 		echo " pull IMAGE"
-		echo " run IMAGE CMD"
+		echo " run [-d] IMAGE CMD"
 		echo " rm CONTAINER"
 		echo " rmi IMAGE"
 		echo " ps [-a]"
