@@ -125,8 +125,8 @@ case "$1" in
 		echo "---------------------------"
 		# finaly stop the zone unless -d option
 		if [ -z "$DEAMON" ]; then
-			echo "Stoping the zone (20 sec)"
-			zoneadm -z $ZONENAME shutdown
+			echo "Halting the zone (5 sec)"
+			zoneadm -z $ZONENAME halt
 		fi
 		;;
 	ps)
