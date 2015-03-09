@@ -1,5 +1,5 @@
-Docker for Solaris 11.2
-=======================
+# Docker for Solaris 11.2
+
 
 What is all this hype about Docker? Is it something like Solaris Zones?
 Reading some stuff on the web it seems that Docker is not popular because of the container technology (that exits form more than a decade).
@@ -10,7 +10,7 @@ About 200 lines of BASH scripting and Solaris zone management commands.
 
 
 
-# Open a terminal (user root) on a Solaris 11.2 system
+## Open a terminal (user root) on a Solaris 11.2 system
 
 If you don't have Solaris (best Entreprise OS in the World :) , you can install it quickly in a sandbox.
 
@@ -18,14 +18,14 @@ Install VirtualBox (https://www.virtualbox.org/wiki/Downloads)
 Download Solaris 11.2 image (http://www.oracle.com/technetwork/server-storage/solaris11/downloads/vm-templates-2245495.html)
 Full procedure (http://www.oracle.com/technetwork/systems/hands-on-labs/s11-vbox-install-1408628.html)
 
-# install docker4solaris (the first invocation will create learn/tutorial image in a local repository)
+## install docker4solaris (the first invocation will create learn/tutorial image in a local repository)
 
 	root@solaris:~# pkg install git
 	root@solaris:~# git clone https://github.com/maduma/docker4solaris.git
 	root@solaris:~# export PATH=$PATH:$PWD/docker4solaris/bin
 	root@solaris:~# docker version
 	
-# follow the tutorial on docker with those slity changed command
+## follow the tutorial on docker with those slity changed command
 
 	docker version
 	docker search tutorial
@@ -39,3 +39,8 @@ Full procedure (http://www.oracle.com/technetwork/systems/hands-on-labs/s11-vbox
 	docker run learn/apache-22 /usr/apache2/2.2/bin/apachectl -M
 	docker inspect CONTAINER
 	docker push learn/apache-22
+	
+## clean all the things
+
+	root@solaris:~# docker-clean
+	
