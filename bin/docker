@@ -25,6 +25,31 @@ MILESTONE=multi-user-server
 IMAGETAG=DI_
 CONTAINERTAG=DC_
 
+
+# create internal network for docker + nat
+dladm show-etherstub dockerint0 >/dev/null 2>&1 || dladm create-etherstub dockerint0
+dladm show-vnic dockergate0 >/dev/null 2>&1 || dladm create-vnic -l dockerint0 dockergate0
+ipadm show-if dockergate0 >/dev/null 2>&1 || ipadm create-ip dockergate0
+ipadm show-addr -po addr,state dockergate0 | grep -q "10.0.0.1/24:ok" || \
+	ipadm create-addr -T static -a 10.0.0.1/24 dockergate0
+[ "$( ipadm show-prop -c -o current -p forwarding ipv4 )" == "on" ] || \
+	ipadm set-prop -p forwarding=on ipv4
+[ ! -f /etc/ipf/ipnat.conf ] && echo "map net0 10.0.0.0/24 -> 0/32" > /etc/ipf/ipnat.conf
+pkg list isc-dhcp >/dev/null 2>&1 || pkg install isc-dhcp
+if [ ! -f /etc/inet/dhcpd4.conf ]; then
+	echo "Enabling networking for docker"
+	cat > /etc/inet/dhcpd4.conf <<EOF
+option domain-name "docker.internal";
+option domain-name-servers 8.8.8.8;
+subnet 10.0.0.0 netmask 255.255.255.0 {
+	range 10.0.0.2 10.0.0.254;
+	option routers 10.0.0.1;
+}
+EOF
+fi
+[ "$( svcs -H -o state ipfilter )" == "online" ] || svcadm enable -s ipfilter
+[ "$( svcs -H -o state dhcp/server:ipv4 )" == "online" ] || svcadm enable -s dhcp/server:ipv4
+
 # generate learn/tutorial archive
 [ ! -d $REPO -o ! -d $IMAGES ] && mkdir -p $REPO $IMAGES
 [ ! -d $REPO/learn ] && mkdir $REPO/learn
@@ -37,29 +62,6 @@ if [ ! -f $REPO/learn/tutorial.uar ]; then
 	zoneadm -z ${IMAGETAG}tutorial install -m $MANIFESTS/solaris-minimal-server.xml
 	archiveadm create -z ${IMAGETAG}tutorial -e $REPO/learn/tutorial.uar
 fi
-
-# create internal network for docker + nat
-dladm show-etherstub dockerint0 >/dev/null 2>&1 || dladm create-etherstub dockerint0
-dladm show-vnic dockergate0 >/dev/null 2>&1 || dladm create-vnic -l dockerint0 dockergate0
-ipadm show-if dockergate0 >/dev/null 2>&1 || ipadm create-ip dockergate0
-ipadm show-addr -po addr,state dockergate0 | grep -q "10.0.0.1/24:ok" || \
-	ipadm create-addr -T static -a 10.0.0.1/24 dockergate0
-[ "$( ipadm show-ifprop -c -o current -p forwarding -m ipv4 dockergate0 )" == "on" ] || \
-	ipadm set-ifprop -p forwarding=on -m ipv4 dockergate0
-[ ! -f /etc/ipf/ipnat.conf ] && echo "map net0 10.0.0.0/24" > /etc/ipf/ipnat.conf
-pkg list isc-dhcp >/dev/null 2>&1 || pkg install isc-dhcp
-if [ ! -f /etc/inet/dhcp4.conf ]; then
-	cat > /etc/inet/dhcp4.conf <<EOF
-option domain-name "docker.internal";
-option domain-name-servers 8.8.8.8;
-subnet 10.0.0.0 netmask 255.255.255.0 {
-	range 10.0.0.2 10.0.0.254;
-	option routers 10.0.0.1;
-}
-EOF
-fi
-[ "$( svcs -H -o state ipfilter )" == "online" ] || svcadm enable -s ipfilter
-[ "$( svcs -H -o state dhcp/server:ipv4 )" == "online" ] || svcadm enable -s dhcp/server:ipv4
 
 # helper functions
 function dockerid2zonename {
