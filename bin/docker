@@ -42,8 +42,10 @@ fi
 dladm show-etherstub dockerint0 >/dev/null 2>&1 || dladm create-etherstub dockerint0
 dladm show-vnic dockergate0 >/dev/null 2>&1 || dladm create-vnic -l dockerint0 dockergate0
 ipadm show-if dockergate0 >/dev/null 2>&1 || ipadm create-ip dockergate0
-ipadm show-addr -po addr,state dockergate0 | grep -q "10.0.0.1/24:ok" || ipadm create-addr -T static -a 10.0.0.1/24 dockergate0
-[ "$( ipadm show-ifprop -c -o current -p forwarding -m ipv4 dockergate0 )" == "on" ] || ipadm set-ifprop -p forwarding=on -m ipv4 dockergate0
+ipadm show-addr -po addr,state dockergate0 | grep -q "10.0.0.1/24:ok" || \
+	ipadm create-addr -T static -a 10.0.0.1/24 dockergate0
+[ "$( ipadm show-ifprop -c -o current -p forwarding -m ipv4 dockergate0 )" == "on" ] || \
+	ipadm set-ifprop -p forwarding=on -m ipv4 dockergate0
 [ ! -f /etc/ipf/ipnat.conf ] && echo "map net0 10.0.0.0/24" > /etc/ipf/ipnat.conf
 pkg list isc-dhcp >/dev/null 2>&1 || pkg install isc-dhcp
 if [ ! -f /etc/inet/dhcp4.conf ]; then
