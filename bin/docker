@@ -52,9 +52,10 @@ if [ ! -f /etc/inet/dhcp4.conf ]; then
 	cat > /etc/inet/dhcp4.conf <<EOF
 option domain-name "docker.internal";
 option domain-name-servers 8.8.8.8;
-subnet 10.0.0.0 netmaks 255.255.255.0 {
+subnet 10.0.0.0 netmask 255.255.255.0 {
 	range 10.0.0.2 10.0.0.254;
 	option routers 10.0.0.1;
+}
 EOF
 fi
 [ "$( svcs -H -o state ipfilter )" == "online" ] || svcadm enable -s ipfilter
