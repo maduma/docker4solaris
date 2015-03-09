@@ -27,6 +27,10 @@ CONTAINERTAG=DC_
 
 
 # create internal network for docker + nat
+if [ ! -f /etc/ipf/ipnat.conf ]; then
+	echo "Enabling networking for docker"
+	echo "map net0 10.0.0.0/24 -> 0/32" > /etc/ipf/ipnat.conf
+fi
 dladm show-etherstub dockerint0 >/dev/null 2>&1 || dladm create-etherstub dockerint0
 dladm show-vnic dockergate0 >/dev/null 2>&1 || dladm create-vnic -l dockerint0 dockergate0
 ipadm show-if dockergate0 >/dev/null 2>&1 || ipadm create-ip dockergate0
@@ -34,10 +38,8 @@ ipadm show-addr -po addr,state dockergate0 | grep -q "10.0.0.1/24:ok" || \
 	ipadm create-addr -T static -a 10.0.0.1/24 dockergate0
 [ "$( ipadm show-prop -c -o current -p forwarding ipv4 )" == "on" ] || \
 	ipadm set-prop -p forwarding=on ipv4
-[ ! -f /etc/ipf/ipnat.conf ] && echo "map net0 10.0.0.0/24 -> 0/32" > /etc/ipf/ipnat.conf
 pkg list isc-dhcp >/dev/null 2>&1 || pkg install isc-dhcp
 if [ ! -f /etc/inet/dhcpd4.conf ]; then
-	echo "Enabling networking for docker"
 	cat > /etc/inet/dhcpd4.conf <<EOF
 option domain-name "docker.internal";
 option domain-name-servers 8.8.8.8;
@@ -131,12 +133,13 @@ case "$1" in
 		sed "s/__NODENAME__/$ZONENAME/" $PROFILES/default.xml > /tmp/manifest.$ZONENAME.xml
 		zoneadm -z $ZONENAME install -a $IMAGES/$CLONESRC.uar \
 			-c /tmp/manifest.$ZONENAME.xml 2>&1 >/dev/null
-		# start the conatiner
+		# start the container
 		echo "Boot the zone (15 sec)"
 		zoneadm -z $ZONENAME boot
 		# wait milestone
 		echo "Waiting the zone to be ready (180 sec) - milestone $MILESTONE"
 		wait_online $ZONENAME $MILESTONE 
+		sleep 5 # for network
 		# add lastrun attribute
 		echo -e "add attr\nset name=lastrun\nset type=uint\nset value=$(date +%s)\nend\ncommit\n" | \
 			zonecfg -z $ZONENAME
