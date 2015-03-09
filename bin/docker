@@ -11,7 +11,6 @@
 #
 # timing value for i386 2511MHz
 # 
- 
 
 
 # INSTALLDIR
@@ -46,27 +45,20 @@ ipadm show-if dockergate0 >/dev/null 2>&1 || ipadm create-ip dockergate0
 ipadm show-addr -po addr,state dockergate0 | grep -q "10.0.0.1/24:ok" || ipadm create-addr -T static -a 10.0.0.1/24 dockergate0
 [ "$( ipadm show-ifprop -c -o current -p forwarding -m ipv4 dockergate0 )" == "on" ] || ipadm set-ifprop -p forwarding=on -m ipv4 dockergate0
 [ ! -f /etc/ipf/ipnat.conf ] && echo "map net0 10.0.0.0/24" > /etc/ipf/ipnat.conf
-[ "$( svcs -H -o state ipfilter )" == "online" ] || svcadm enable -s ipfilter
 pkg list isc-dhcp >/dev/null 2>&1 || pkg install isc-dhcp
 if [ ! -f /etc/inet/dhcp4.conf ]; then
 	cat > /etc/inet/dhcp4.conf <<EOF
-
 option domain-name "docker.internal";
 option domain-name-servers 8.8.8.8;
 subnet 10.0.0.0 netmaks 255.255.255.0 {
 	range 10.0.0.2 10.0.0.254;
 	option routers 10.0.0.1;
-}
-
 EOF
 fi
+[ "$( svcs -H -o state ipfilter )" == "online" ] || svcadm enable -s ipfilter
 [ "$( svcs -H -o state dhcp/server:ipv4 )" == "online" ] || svcadm enable -s dhcp/server:ipv4
 
-
-
-
 # helper functions
-
 function dockerid2zonename {
 	IMAGE=$1
 	echo "$IMAGETAG$( echo $IMAGE | tr -s '/' '_' | cut -f1 -d.)"

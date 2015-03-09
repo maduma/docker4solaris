@@ -15,3 +15,11 @@ zoneadm list -c | egrep "^DC_|^DI_" | xargs -i zonecfg -z {} delete -F 2>&1 >/de
 
 rm -r $IMAGES
 rm -r $REPO
+
+svcadm disable -s dhcp/server:ipv4
+svcadm disable -s ipfilter
+ipadm set-ifprop -p forwarding=off -m ipv4 dockergate0
+ipadm delete-addr dockergate0/v4
+ipadm delete-ip dockergate0
+dladm delete-vnic dockergate0
+dladm delete-etherstub dockerint0
