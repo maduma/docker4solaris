@@ -67,7 +67,7 @@ case "$1" in
 		[ -z "$2" ] && exit 1
 		IMAGES=$( find $REPO -name "*.uar" | sed "s#^$REPO/##" | cut -f1 -d. | grep $2 )
 		[ -z "$IMAGES" ] && exit 0
-		IMAGESNBR=$( echo $IMAGES | wc -l )
+		IMAGESNBR=$( echo "$IMAGES" | wc -l )
 		echo Found $IMAGESNBR results matching your query \(\"$2\"\)
 		echo "NAME                      DESCRIPTION"
 		for IMAGE in $IMAGES; do
@@ -185,6 +185,22 @@ case "$1" in
 		echo "$IMAGE ($ARCHNAME.uar)" > $IMAGES/$ARCHNAME.desc
 		echo "$IMAGE ($ARCHNAME.desc)"
 		;;
+	inspect)
+		[ -z "$2" ] && exit 1
+		CONTAINER=$2
+		ZONENAME="$CONTAINERTAG$CONTAINER"
+		zonecfg -z $ZONENAME info
+		;;
+	push)
+		[ -z "$2" ] && exit 1
+		IMAGE=$2
+		ZONENAME=`dockerid2zonename $IMAGE`
+		echo "Pushing $IMAGE to repository"
+		mkdir -p $REPO/`dirname $IMAGE`
+		cp $IMAGES/$ZONENAME.uar $REPO/$IMAGE.uar
+		cp $IMAGES/$ZONENAME.desc $REPO/$IMAGE.desc
+		;;
+		
 	*)
 		echo "Docker for Solaris version 0.0.1"
 		echo "Commands:"
@@ -197,5 +213,6 @@ case "$1" in
 		echo " rmi IMAGE"
 		echo " ps [-a]"
 		echo " commit CONTAINER IMAGE"
+		echo " inspect CONTAINER"
 		;;
 esac
