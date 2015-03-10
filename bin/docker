@@ -64,6 +64,8 @@ if [ ! -f $REPO/learn/tutorial.uar ]; then
 	zonecfg -z ${IMAGETAG}tutorial create
 	zoneadm -z ${IMAGETAG}tutorial install -m $MANIFESTS/solaris-minimal-server.xml
 	archiveadm create -z ${IMAGETAG}tutorial -e $REPO/learn/tutorial.uar
+	zoneadm -z ${IMAGETAG}tutorial uninstall -F
+	zonecfg -z ${IMAGETAG}tutorial delete -F
 fi
 
 # helper functions
@@ -131,10 +133,14 @@ case "$1" in
 		echo "Create zone $ZONENAME"
 		zonecfg -z $ZONENAME create 2>&1 >/dev/null
 		echo -n "select anet lower-link=auto\nset lower-link=dockerint0\nend\n" | zonecfg -z $ZONENAME
-		echo "Install the zone (180 sec)"
 		sed "s/__NODENAME__/$ZONENAME/" $PROFILES/default.xml > /tmp/manifest.$ZONENAME.xml
-		zoneadm -z $ZONENAME install -a $IMAGES/$CLONESRC.uar \
-			-c /tmp/manifest.$ZONENAME.xml 2>&1 >/dev/null
+		if [ "$( zoneadm -z $CLONESRC list -p 2>/dev/null | cut -f3 -d: )" != "installed" ]; then
+			echo "Installing the image before cloning (180 sec)"
+			zonecfg -z $CLONESRC create
+			zoneadm -z $CLONESRC install -a $IMAGES/$CLONESRC.uar 2>&1 >/dev/null
+		fi
+		echo "cloning the image (10 sec)"
+		zoneadm -z $ZONENAME clone -c /tmp/manifest.$ZONENAME.xml $CLONESRC 2>&1 >/dev/null
 		# start the container
 		echo "Boot the zone (15 sec)"
 		zoneadm -z $ZONENAME boot

@@ -6,7 +6,7 @@ PATH=$PATH:../bin
 
 function test {
 	CMD=$1
-	echo -n "$CMD $2- "
+	echo -n "$CMD - "
 	OUTPUT=out/$( echo "$CMD" | tr -s ' ' ':' | tr -s '/' '%').txt
 	CMD_OUTPUT=$( $CMD )
 	DIFFOUT=$( diff <(echo "$CMD_OUTPUT") <(cat $OUTPUT | perl -pe "s/[0-9a-z]{16}/$(cat $LASTCONTAINER | cut -f2 -d_)/" ) 2>&1 )
@@ -16,8 +16,32 @@ function test {
 echo "-- INITIALISING --"
 docker
 echo "-- TESTING --"
+
 test "docker search tutorial"
+
+echo "prerun"
+echo -n "    rm -f ../images/* - "
+rm ../images/*
+echo "ok"
 test "docker pull learn/tutorial"
+
+echo "prerun"
+echo -n "    docker run learn/tutorial echo Hello World - "
+docker run learn/tutorial echo Hello World >/dev/null 2>&1
+echo "ok"
+
+test "docker run learn/tutorial ping www.google.com"
+
+echo "prerun"
+echo -n "    docker run learn/tutorial pkg install apache-22 - "
+docker run learn/tutorial pkg install apache-22 >/dev/null 2>&1
+echo "ok"
+echo -n "    docker commit $(docker ps -l | awk '!/ID/{print $1}') learn/apache-22 - "
+docker commit $(docker ps -l | awk '!/ID/{print $1}') learn/apache-22 >/dev/null 2>&1
+echo "ok"
+echo -n "    docker run learn/apache-22 echo Hello World - "
+docker run learn/apache-22 echo Hello World >/dev/null 2>&1
+echo "ok"
+test "docker run learn/apache-22 /usr/apache2/2.2/bin/apachectl -M" 2>/dev/null
+
 test "docker images"
-test "docker run learn/tutorial echo Hello World" "(200 sec) "
-test "docker run learn/tutorial ping www.google.com" "(200 sec) "

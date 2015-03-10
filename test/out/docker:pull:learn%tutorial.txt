@@ -1,1 +1,3 @@
 Pulling repository learn/tutorial
+Pulling image DI_learn_tutorial.uar
+Pulling description DI_learn_tutorial.desc

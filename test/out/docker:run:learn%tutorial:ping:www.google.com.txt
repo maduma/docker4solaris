@@ -1,5 +1,5 @@
 Create zone DC_65b6838215c3b88f
-Install the zone (180 sec)
+cloning the image (10 sec)
 Boot the zone (15 sec)
 Waiting the zone to be ready (180 sec) - milestone multi-user-server
 Run process inside the zone

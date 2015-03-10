@@ -13,8 +13,11 @@ zoneadm list -c | egrep "^DC_" | xargs -i zoneadm -z {} uninstall -F 2>&1 >/dev/
 zoneadm list -c | egrep "^DI_" | xargs -i zoneadm -z {} uninstall -F 2>&1 >/dev/null
 zoneadm list -c | egrep "^DC_|^DI_" | xargs -i zonecfg -z {} delete -F 2>&1 >/dev/null
 
-rm -r $IMAGES
-rm -r $REPO
+zfs list -d3 -o name | grep DC_ | xargs -n1 zfs destroy -r 
+zfs list -d3 -o name | grep DI_ | xargs -n1 zfs destroy -r 
+
+rm -fr $IMAGES
+rm -fr $REPO
 
 svcadm disable -s dhcp/server:ipv4
 svcadm disable -s ipfilter
@@ -23,3 +26,4 @@ ipadm delete-addr dockergate0/v4
 ipadm delete-ip dockergate0
 dladm delete-vnic dockergate0
 dladm delete-etherstub dockerint0
+rm /etc/ipf/ipnat.conf
