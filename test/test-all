@@ -21,7 +21,7 @@ test "docker search tutorial"
 
 echo "prerun"
 echo -n "    rm -f ../images/* - "
-rm ../images/*
+rm ../images/* >/dev/null 2>&1
 echo "ok"
 test "docker pull learn/tutorial"
 
