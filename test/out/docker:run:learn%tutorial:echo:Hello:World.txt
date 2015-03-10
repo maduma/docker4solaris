@@ -1,0 +1,9 @@
+Create zone DC_3bc9640dbdff8d22
+Install the zone (180 sec)
+Boot the zone (15 sec)
+Waiting the zone to be ready (180 sec) - milestone multi-user-server
+Run process inside the zone
+---------------------------
+Hello World
+---------------------------
+Halting the zone (5 sec)

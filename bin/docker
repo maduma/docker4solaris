@@ -24,6 +24,7 @@ MANIFESTS=$INSTALLDIR/manifests
 MILESTONE=multi-user-server
 IMAGETAG=DI_
 CONTAINERTAG=DC_
+LASTCONTAINER=/tmp/lastcontainer
 
 
 # create internal network for docker + nat
@@ -75,7 +76,7 @@ function wait_online {
 	ZONENAME=$1
 	SVC=$2
 	until [ "$STATE" == "online" ]; do
-		sleep 1
+		sleep 5
 		STATE=$( zlogin $1 svcs -Ho state $SVC 2>/dev/null)
 	done
 }
@@ -125,6 +126,7 @@ case "$1" in
 		CLONESRC=`dockerid2zonename $IMAGE`
 		# give a random name to the zon
 		ZONENAME="$CONTAINERTAG$( openssl rand -hex 8 )"
+		echo $ZONENAME > $LASTCONTAINER
 		# create a new container
 		echo "Create zone $ZONENAME"
 		zonecfg -z $ZONENAME create 2>&1 >/dev/null

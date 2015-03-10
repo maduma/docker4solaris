@@ -1,0 +1,23 @@
+#!/usr/bin/bash
+
+LASTCONTAINER=/tmp/lastcontainer
+touch $LASTCONTAINER
+PATH=$PATH:../bin
+
+function test {
+	CMD=$1
+	echo -n "$CMD $2- "
+	OUTPUT=out/$( echo "$CMD" | tr -s ' ' ':' | tr -s '/' '%').txt
+	CMD_OUTPUT=$( $CMD )
+	DIFFOUT=$( diff <(echo "$CMD_OUTPUT") <(cat $OUTPUT | perl -pe "s/[0-9a-z]{16}/$(cat $LASTCONTAINER | cut -f2 -d_)/" ) 2>&1 )
+	[ $? -eq 0 ] && echo ok || (echo nok; echo "$DIFFOUT")
+}
+
+echo "-- INITIALISING --"
+docker
+echo "-- TESTING --"
+test "docker search tutorial"
+test "docker pull learn/tutorial"
+test "docker images"
+test "docker run learn/tutorial echo Hello World" "(200 sec) "
+test "docker run learn/tutorial ping www.google.com" "(200 sec) "
