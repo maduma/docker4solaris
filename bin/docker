@@ -39,7 +39,7 @@ ipadm show-addr -po addr,state dockergate0 | grep -q "10.0.0.1/24:ok" || \
 	ipadm create-addr -T static -a 10.0.0.1/24 dockergate0
 [ "$( ipadm show-prop -c -o current -p forwarding ipv4 )" == "on" ] || \
 	ipadm set-prop -p forwarding=on ipv4
-pkg list isc-dhcp >/dev/null 2>&1 || pkg install isc-dhcp
+pkg list isc-dhcp >/dev/null 2>&1 || pkg install isc-dhcp >/dev/null 2>&1
 if [ ! -f /etc/inet/dhcpd4.conf ]; then
 	cat > /etc/inet/dhcpd4.conf <<EOF
 option domain-name "docker.internal";
