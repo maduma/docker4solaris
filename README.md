@@ -5,6 +5,7 @@ but mostly because of its clever API and CLI. (see https://www.docker.com/tryit/
 
 This is a quick an dirty naive implementation of a small subset of Docker CLI on Solaris 11.2. About 250 lines of BASH scripting using _Solaris Zone_ and _Virtual VNIC_ as backend.
 
+The only purpose is to run the tutorial and have fun.
 
 ## Open a terminal (user root) on a Solaris 11.2 system
 
