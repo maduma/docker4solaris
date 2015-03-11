@@ -20,10 +20,10 @@ If you don't have Solaris (best Entreprise OS in the World :). You can install i
 
 The first invocation will set up networking for dcoker and create the _learn/tutorial_ image in a local repository
 
-	root@solaris:~# pkg install git
-	root@solaris:~# git clone https://github.com/maduma/docker4solaris.git
-	root@solaris:~# export PATH=$PATH:$PWD/docker4solaris/bin
-	root@solaris:~# docker version
+	pkg install git
+	git clone https://github.com/maduma/docker4solaris.git
+	export PATH=$PATH:$PWD/docker4solaris/bin
+	docker version
 	
 ## follow the tutorial on docker
 
@@ -42,5 +42,5 @@ The first invocation will set up networking for dcoker and create the _learn/tut
 	
 ## clean all the things
 
-	root@solaris:~# docker-clean
+	docker-clean
 	
